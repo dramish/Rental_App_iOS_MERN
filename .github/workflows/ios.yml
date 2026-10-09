@@ -1,0 +1,16 @@
+name: ios
+on:
+  push: { paths: ["ios/**", ".github/workflows/ios.yml"] }
+  pull_request: { paths: ["ios/**"] }
+jobs:
+  packages:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Swift packages
+        run: |
+          for p in ios/Packages/*/; do
+            echo "== $p"; swift test --package-path "$p" || exit 1
+          done
+  # TODO: add an `xcodebuild test` job for the app targets once the Xcode project exists,
+  # plus SwiftLint.
