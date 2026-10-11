@@ -185,10 +185,12 @@ export async function transition(input: TransitionInput): Promise<{ order: Order
 
       const order = await Order.findById(orderId).session(session);
       if (!order) throw new AppError(404, 'not_found', 'Order not found');
+      // WHO is asking comes before WHAT state it is in: otherwise a stranger could probe an order's
+      // status through the "illegal transition" error message.
+      assertActorMayAct(order, input.actor, event);
       if (!rule.from.includes(order.status)) {
         throw new AppError(409, 'illegal_transition', `Cannot ${event} an order that is ${order.status}`, { status: order.status, event });
       }
-      assertActorMayAct(order, input.actor, event);
 
       const set: Record<string, unknown> = { status: rule.to };
       await applyEffects({ order, event, payload, set, after, session });

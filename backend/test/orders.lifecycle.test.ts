@@ -137,6 +137,17 @@ describe('state machine rules', () => {
     (await AvailabilityDay.find({ skuId: sku._id })).forEach((d) => expect(d.reserved).toBe(0));
   });
 
+  it("does not reveal an order's status to someone who does not own it", async () => {
+    const { orderId, customer } = await placeAndPay();
+    await transition({ orderId, event: 'CUSTOMER_CANCEL', actor: { id: customer.id, role: 'customer' }, idempotencyKey: 'own-cancel' });
+    const stranger = await makeUser('customer');
+    // The order is CANCELLED, so for the owner this event would be an illegal transition (409 with the status).
+    // For a stranger it must be a plain 403: no status in the response.
+    const err = await transition({ orderId, event: 'CUSTOMER_CANCEL', actor: { id: stranger.id, role: 'customer' }, idempotencyKey: 'probe' }).catch((e) => e);
+    expect(err.code).toBe('forbidden');
+    expect(err.details).toBeUndefined();
+  });
+
   it('rejects wrong actors, wrong states, and missing payloads', async () => {
     const { orderId, customer } = await placeAndPay();
     const stranger = await makeUser('customer');
