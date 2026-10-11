@@ -1,0 +1,100 @@
+# Generate the Xcode project with XcodeGen:  brew install xcodegen && cd ios && xcodegen
+name: Lend
+options:
+  bundleIdPrefix: app.lend
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # Set your team to run on a device (push, Sign in with Apple and Live Activities need signing).
+    DEVELOPMENT_TEAM: ""
+packages:
+  Networking: { path: Packages/Networking }
+  Persistence: { path: Packages/Persistence }
+  Realtime: { path: Packages/Realtime }
+  LocationKit: { path: Packages/LocationKit }
+  DesignSystem: { path: Packages/DesignSystem }
+  LiveActivityShared: { path: Packages/LiveActivityShared }
+  AppCore: { path: Packages/AppCore }
+  Features: { path: Packages/Features }
+
+targets:
+  LendCustomer:
+    type: application
+    platform: iOS
+    sources: [Apps/LendCustomer]
+    dependencies:
+      - package: Features
+        product: AuthFeature
+      - package: Features
+        product: CustomerFeatures
+      - package: AppCore
+      - package: Networking
+      - package: Persistence
+      - target: LendLiveActivity
+    info:
+      path: Apps/LendCustomer/Info.plist
+      properties:
+        CFBundleDisplayName: Lend
+        LendAPIURL: "http://localhost:3000"
+        NSSupportsLiveActivities: true
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        UILaunchScreen: {}
+    entitlements:
+      path: Apps/LendCustomer/LendCustomer.entitlements
+      properties:
+        aps-environment: development
+        com.apple.developer.applesignin: [Default]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.lend.customer
+
+  LendDriver:
+    type: application
+    platform: iOS
+    sources: [Apps/LendDriver]
+    dependencies:
+      - package: Features
+        product: AuthFeature
+      - package: Features
+        product: DriverFeatures
+      - package: AppCore
+      - package: Networking
+    info:
+      path: Apps/LendDriver/Info.plist
+      properties:
+        CFBundleDisplayName: Lend Driver
+        LendAPIURL: "http://localhost:3000"
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NSLocationWhenInUseUsageDescription: "Lend Driver uses your location to match you with nearby jobs."
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Lend Driver shares your location with customers while you deliver, including when the app is in the background."
+        UIBackgroundModes: [location, remote-notification]
+        UILaunchScreen: {}
+    entitlements:
+      path: Apps/LendDriver/LendDriver.entitlements
+      properties:
+        aps-environment: development
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.lend.driver
+
+  LendLiveActivity:
+    type: app-extension
+    platform: iOS
+    sources: [Apps/LendLiveActivity]
+    dependencies:
+      - package: LiveActivityShared
+    info:
+      path: Apps/LendLiveActivity/Info.plist
+      properties:
+        CFBundleDisplayName: Lend Live Activity
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.lend.customer.liveactivity

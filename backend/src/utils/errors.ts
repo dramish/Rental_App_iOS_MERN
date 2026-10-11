@@ -8,6 +8,3 @@ export class AppError extends Error {
     super(message);
   }
 }
-
-export const notImplemented = (what: string) =>
-  new AppError(501, 'not_implemented', `${what} is not implemented yet (TBI)`);

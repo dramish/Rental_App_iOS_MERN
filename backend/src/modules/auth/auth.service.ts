@@ -7,6 +7,7 @@ import { signAccessToken } from '../../middleware/auth';
 import type { Role } from '../../types/express';
 import { User } from './user.model';
 import { RefreshToken } from './refreshToken.model';
+import { getAppleVerifier } from './apple';
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 
@@ -14,11 +15,11 @@ export interface AuthResult {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
-  user: { id: string; email: string; name: string; role: Role };
+  user: { id: string; email: string | null; name: string; role: Role };
 }
 
 async function issueTokens(
-  user: { _id: Types.ObjectId; email: string; name: string; role: string },
+  user: { _id: Types.ObjectId; email?: string | null; name: string; role: string },
   familyId: string,
 ): Promise<AuthResult> {
   const raw = randomBytes(32).toString('base64url');
@@ -33,7 +34,7 @@ async function issueTokens(
     accessToken: signAccessToken(id, user.role as Role),
     refreshToken: raw,
     expiresIn: env.ACCESS_TOKEN_TTL_SECONDS,
-    user: { id, email: user.email, name: user.name, role: user.role as Role },
+    user: { id, email: user.email ?? null, name: user.name, role: user.role as Role },
   };
 }
 
@@ -85,4 +86,24 @@ export async function logout(rawToken: string): Promise<void> {
   if (doc) {
     await RefreshToken.updateMany({ familyId: doc.familyId, revokedAt: null }, { $set: { revokedAt: new Date() } });
   }
+}
+
+/**
+ * Sign in with Apple. Users are keyed by Apple's stable `sub`, never by email:
+ * linking by email would let anyone who controls a matching Apple relay address take over an account.
+ * Apple only sends the name on the FIRST authorization, so we take it from the client then.
+ */
+export async function loginWithApple(input: { identityToken: string; nonce: string; fullName?: string }): Promise<AuthResult> {
+  const identity = await getAppleVerifier()(input.identityToken, input.nonce);
+  let user = await User.findOne({ appleSub: identity.sub });
+  if (!user) {
+    const emailTaken = identity.email ? await User.exists({ email: identity.email.toLowerCase() }) : null;
+    user = await User.create({
+      appleSub: identity.sub,
+      email: emailTaken ? undefined : identity.email,
+      name: input.fullName?.trim() || 'Apple user',
+      role: 'customer',
+    });
+  }
+  return issueTokens(user, randomUUID());
 }

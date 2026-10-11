@@ -3,6 +3,9 @@ import mongoose from 'mongoose';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { createApp } from '../src/app';
 import { RefreshToken } from '../src/modules/auth/refreshToken.model';
+import { setAppleVerifier } from '../src/modules/auth/apple';
+import { AppError } from '../src/utils/errors';
+import { User } from '../src/modules/auth/user.model';
 
 let replSet: MongoMemoryReplSet;
 const app = createApp();
@@ -87,5 +90,31 @@ describe('catalog pagination', () => {
     expect(p2.body.nextCursor).toBeNull();
     const ids = [...p1.body.items, ...p2.body.items].map((s: { _id: string }) => s._id);
     expect(new Set(ids).size).toBe(5);
+  });
+});
+
+describe('Sign in with Apple', () => {
+  afterEach(() => setAppleVerifier(async () => { throw new AppError(401, 'invalid_apple_token', 'Invalid Apple identity token'); }));
+
+  it('creates a user on first login and reuses it afterwards, keyed by Apple sub (not email)', async () => {
+    setAppleVerifier(async () => ({ sub: 'apple-sub-1', email: 'relay@privaterelay.appleid.com' }));
+    const body = { identityToken: 'x'.repeat(40), nonce: 'raw-nonce-123', fullName: 'Asha B' };
+    const first = await request(app).post('/v1/auth/apple').send(body).expect(200);
+    const second = await request(app).post('/v1/auth/apple').send({ ...body, fullName: undefined }).expect(200);
+    expect(second.body.user.id).toBe(first.body.user.id);
+    expect(first.body.user.name).toBe('Asha B');
+    expect(await User.countDocuments({ appleSub: 'apple-sub-1' })).toBe(1);
+  });
+
+  it('does not link to an existing email account (no takeover via email)', async () => {
+    setAppleVerifier(async () => ({ sub: 'apple-sub-2', email: creds.email }));
+    const res = await request(app).post('/v1/auth/apple').send({ identityToken: 'x'.repeat(40), nonce: 'raw-nonce-456' }).expect(200);
+    const existing = await User.findOne({ email: creds.email });
+    expect(res.body.user.id).not.toBe(String(existing!._id));
+  });
+
+  it('rejects an invalid token', async () => {
+    setAppleVerifier(async () => { throw new AppError(401, 'invalid_apple_token', 'Invalid Apple identity token'); });
+    await request(app).post('/v1/auth/apple').send({ identityToken: 'x'.repeat(40), nonce: 'raw-nonce-789' }).expect(401);
   });
 });

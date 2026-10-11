@@ -2,11 +2,11 @@ import { Schema, model, type InferSchemaType } from 'mongoose';
 
 const userSchema = new Schema(
   {
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
     passwordHash: { type: String },
     name: { type: String, required: true, trim: true },
     role: { type: String, enum: ['customer', 'shop', 'driver', 'admin'], default: 'customer' },
-    appleSub: { type: String, index: true, sparse: true },
+    appleSub: { type: String, unique: true, sparse: true },
   },
   { timestamps: true },
 );

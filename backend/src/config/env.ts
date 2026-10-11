@@ -10,6 +10,16 @@ const schema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().default(30),
   BCRYPT_ROUNDS: z.coerce.number().default(10),
   LOG_LEVEL: z.string().default('info'),
+  HOLD_SECONDS: z.coerce.number().default(900),
+  PAYMENT_PROVIDER: z.enum(['fake', 'stripe']).default('fake'),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  APPLE_BUNDLE_ID: z.string().optional(),
+  APNS_KEY_P8: z.string().optional(), // contents of the .p8 key (use \n for newlines)
+  APNS_KEY_ID: z.string().optional(),
+  APNS_TEAM_ID: z.string().optional(),
+  APNS_BUNDLE_ID: z.string().optional(),
+  APNS_PRODUCTION: z.coerce.boolean().default(false),
 });
 
 export const env = schema.parse(process.env);

@@ -6,6 +6,7 @@ import { validateBody } from '../../middleware/validate';
 import { AppError } from '../../utils/errors';
 import { decodeCursor, encodeCursor } from '../../utils/pagination';
 import { Sku, type SkuDoc } from './sku.model';
+import { getAvailability } from '../availability/availability.service';
 
 export const skuRouter = Router();
 
@@ -66,6 +67,15 @@ skuRouter.get('/:id', async (req, res, next) => {
     const sku = await Sku.findById(id);
     if (!sku) throw new AppError(404, 'not_found', 'SKU not found');
     res.json(sku);
+  } catch (e) {
+    next(e);
+  }
+});
+
+skuRouter.get('/:id/availability', async (req, res, next) => {
+  try {
+    const q = z.object({ from: z.string(), to: z.string() }).parse(req.query);
+    res.json({ days: await getAvailability(req.params['id'] ?? '', q.from, q.to) });
   } catch (e) {
     next(e);
   }

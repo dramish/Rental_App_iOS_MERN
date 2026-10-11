@@ -7,10 +7,25 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - name: Test Swift packages
+      - name: Build and test Swift packages
         run: |
           for p in ios/Packages/*/; do
-            echo "== $p"; swift test --package-path "$p" || exit 1
+            echo "== $p"
+            if [ -d "$p/Tests" ]; then swift test --package-path "$p" || exit 1
+            else swift build --package-path "$p" || exit 1; fi
           done
-  # TODO: add an `xcodebuild test` job for the app targets once the Xcode project exists,
-  # plus SwiftLint.
+  app:
+    runs-on: macos-15
+    needs: packages
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - name: Generate the Xcode project
+        run: cd ios && xcodegen
+      - name: Build both apps for the simulator
+        run: |
+          cd ios
+          for scheme in LendCustomer LendDriver; do
+            xcodebuild build -project Lend.xcodeproj -scheme "$scheme" \
+              -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO
+          done

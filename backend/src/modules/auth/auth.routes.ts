@@ -3,7 +3,7 @@ import { validateBody } from '../../middleware/validate';
 import { requireAuth } from '../../middleware/auth';
 import { authLimiter } from '../../middleware/rateLimit';
 import { AppError } from '../../utils/errors';
-import { loginSchema, refreshSchema, registerSchema } from './auth.schemas';
+import { appleSchema, loginSchema, refreshSchema, registerSchema } from './auth.schemas';
 import * as auth from './auth.service';
 import { User } from './user.model';
 
@@ -54,8 +54,10 @@ authRouter.get('/me', requireAuth, async (req, res, next) => {
   }
 });
 
-// TBI: Sign in with Apple. Verify the identity token against Apple's JWKS,
-// check aud/iss/exp/nonce, upsert by appleSub, then issueTokens().
-authRouter.post('/apple', (_req, _res, next) =>
-  next(new AppError(501, 'not_implemented', 'Sign in with Apple not implemented yet')),
-);
+authRouter.post('/apple', validateBody(appleSchema), async (req, res, next) => {
+  try {
+    res.json(await auth.loginWithApple(req.body));
+  } catch (e) {
+    next(e);
+  }
+});
